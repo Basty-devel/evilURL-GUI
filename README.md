@@ -124,18 +124,6 @@ Unicode Consortium - Character standards
 
 Disclaimer: This tool is for educational purposes only. The developers assume no liability for any misuse of this software.
 
-text
 
-For optimal presentation, create a screenshot named `screenshot.png` showing the application interface and place it in the same directory as the README.md. The screenshot will automatically be displayed in GitHub's markdown renderer.
-
-This README provides:
-1. Clear installation and usage instructions
-2. Feature overview with emoji visuals
-3. Educational context and purpose
-4. Contribution guidelines
-5. Licensing information
-6. Professional formatting suitable for GitHub
-7. Responsive design elements (badges, tables)
-8. Important disclaimer about ethical use
 
 The requirements.txt file lists only the essential dependencies needed to run the application.
