@@ -1,4 +1,4 @@
-# EvilURL4 Classroom Edition
+# EvilURL4 Classroom Edition with GUI
 
 [![PyPI](https://img.shields.io/badge/python-3.6%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
