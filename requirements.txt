@@ -1,2 +1,11 @@
-PyQt5
-python-whois
+# Requirements for Homograph Attack Demonstrator
+# Python 3.6 or higher required
+
+# GUI framework
+PyQt5>=5.15.0
+
+# WHOIS lookup functionality
+python-whois>=0.8.0
+
+# Additional utilities
+setuptools>=65.5.0
