@@ -1,129 +1,125 @@
-# EvilURL4 Classroom Edition with GUI
+# Internationalized Domain Name (IDN) Homograph Attack Demonstrator
 
-[![PyPI](https://img.shields.io/badge/python-3.6%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-lightgrey)
 
-EvilURL4 Classroom Edition is an educational tool that demonstrates IDN Homograph attacks by generating visually similar domain names using Unicode characters. This GUI-based application helps security professionals and educators showcase how attackers can create deceptive URLs for phishing campaigns.
-
-![EvilURL4 Screenshot](screenshot.png)
+An educational tool that demonstrates how homograph attacks work by substituting Latin characters with visually similar non-Latin characters from Cyrillic and Greek scripts. This tool helps security professionals and educators understand and defend against Internationalized Domain Name (IDN) homograph attacks.
 
 ## Features
 
-- 🖥️ Modern PyQt5 GUI with dark theme
-- 🔠 Generate homograph variants of domains
-- 🌐 Check domain connection status (UP/DOWN)
-- 🔍 Check domain availability (REGISTERED/AVAILABLE)
-- 📁 Batch processing from input files
-- 💾 Save results to text files
-- 🚦 Real-time progress tracking
-- 🎨 Color-coded output for readability
-- ⚙️ Configurable processing options
+- **Character Substitution**: Expands Latin characters to visually similar Cyrillic and Greek homoglyphs
+- **GUI Interface**: User-friendly PyQt5 interface for interactive exploration
+- **Domain Analysis**: Performs WHOIS lookups to check domain registration status
+- **Online Verification**: Checks if generated domains are resolvable via DNS
+- **Punycode Display**: Shows the ASCII representation of internationalized domain names
+- **Educational Focus**: Detailed explanations of homograph attacks and security implications
 
 ## Installation
 
-1. **Prerequisites**:
-   - Python 3.6 or higher
-   - pip package manager
+### Prerequisites
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-Run the application:
+- Python 3.6 or higher
+- pip (Python package manager)
 
-bash
-python evilurl4.py
-Usage
-Single Domain Processing
-Enter a domain in the format example.com
+### Steps
 
-Select processing options:
+1. Clone or download this repository
+2. Navigate to the project directory
+3. Install required dependencies:
 
-✅ Generate homograph variants
+```bash
+pip install -r requirements.txt
+```
+## Usage
+### Graphical Interface (Recommended)
+```bash
+python evilURL4.py
+```
+Enter a domain name in the input field (e.g., "example.com")
 
-✅ Check domain connection
+Select which character sets to use (Cyrillic, Greek, or both)
 
-✅ Check domain availability
+Choose whether to perform WHOIS lookups and online checks
 
-Click "Process"
+Click "Analyze" to generate homograph variations
 
-Batch Processing
-Click "Browse" to select an input file containing domains (one per line)
+View results in the table, with color-coded status indicators
 
-Configure processing options
+Double-click any result to see detailed information
 
-Click "Process"
+### Command Line Interface
+```bash
+python evilURL4.py example.com
+```
+The CLI mode provides a text-based output of homograph variants with basic checks.
 
-Output Controls
-Save Output: Export results to text file
+How It Works
+The tool identifies characters in a domain name that have visually similar equivalents in other scripts (primarily Cyrillic and Greek). It then generates all possible combinations of substitutions and performs various checks:
 
-Clear Output: Reset the output panel
+Punycode Conversion: Translates international characters to ASCII-compatible encoding
 
-Cancel: Stop ongoing processing
+WHOIS Lookup: Checks if the domain is registered and displays registration details
 
-Command Line Options
-While the GUI is the primary interface, you can also run the tool from the command line:
+Online Verification: Attempts to resolve the domain to see if it's actively used
 
-bash
-python evilurl4.py -d example.com -g -c -a -o results.txt
-Options:
+Character Substitution Map
+The tool uses a carefully curated mapping of Latin characters to their visually similar non-Latin equivalents:
 
--d/--domain: Target domain
+Latin	Cyrillic	Greek	Description
+a	а	α	Cyrillic small a, Greek alpha
+c	с		Cyrillic small es
+e	е	е	Cyrillic small ie, Greek epsilon
+o	о	ο	Cyrillic small o, Greek omicron
+p	р		Cyrillic small er
+x	х	χ	Cyrillic small ha, Greek chi
+y	у	γ	Cyrillic small u, Greek gamma
+...	...	...	...
+See the full mapping in the source code.
 
--g/--generate: Generate homograph variants
-
--c/--check: Check domain connections
-
--a/--availability: Check domain availability
-
--f/--file: Process domains from file
-
--o/--output: Save results to file
-
-Homograph Character Mapping
-The tool uses Unicode characters from various scripts (Cyrillic, Greek, Cherokee, etc.) that visually resemble Latin letters. For example:
-
-Latin	Similar Characters	Unicode Names
-a	а, Ӑ, ā	Cyrillic Small Letter A, Cyrillic Small Letter A with Breve, Latin Small Letter A with Macron
-c	с, ϲ, ς	Cyrillic Small Letter Es, Greek Lunate Sigma Symbol, Greek Small Letter Final Sigma
-o	о, ο, օ	Cyrillic Small Letter O, Greek Small Letter Omicron, Armenian Small Letter Oh
-Educational Purpose
+## Educational Purpose
 This tool is designed for:
 
-Security awareness training
+Security researchers studying homograph attacks
 
-Demonstrating IDN homograph attacks
+Educators teaching cybersecurity concepts
 
-Researching phishing techniques
+System administrators testing their defenses
 
-Testing domain protection mechanisms
+Developers implementing IDN validation
 
-Important: Use this tool only on domains you own or have permission to test. Never use it for malicious purposes.
+**Important: This tool should only be used on domains you own or have explicit permission to test. Unauthorized use may violate terms of service or applicable laws.**
 
-Contributing
-Contributions are welcome! Please follow these steps:
+## Limitations
 
-Fork the repository
+Character substitution is limited to the most visually convincing homoglyphs
 
-Create a feature branch (git checkout -b feature/improvement)
+WHOIS lookups may fail for some TLDs or restricted domains
 
-Commit your changes (git commit -am 'Add new feature')
+Online checks only verify DNS resolution, not HTTP availability
 
-Push to the branch (git push origin feature/improvement)
+Some modern browsers have implemented protections against homograph attacks
 
-Open a pull request
+## Contributing
+Contributions are welcome! Please feel free to submit issues, suggestions, or pull requests for:
 
-License
+Additional character mappings
+
+Improved GUI features
+
+Enhanced detection capabilities
+
+Documentation improvements
+
+## License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-Acknowledgments
-UndeadSec (Alisson Moretto) - Original EvilURL concept
+## Disclaimer
+This tool is provided for educational purposes only. The authors are not responsible for any misuse of this software. Always ensure you have proper authorization before testing domains you do not own.
 
-Basty-devel (Sebastian Friedrich Nestler) - GUI implementation
+## References
+Unicode Technical Report #36: Unicode Security Considerations
 
-Unicode Consortium - Character standards
+ICANN IDN Guidelines
 
-Disclaimer: This tool is for educational purposes only. The developers assume no liability for any misuse of this software.
-
-
-
-The requirements.txt file lists only the essential dependencies needed to run the application.
+RFC 5890: Internationalized Domain Names for Applications (IDNA)
