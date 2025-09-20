@@ -1,520 +1,493 @@
 #!/usr/bin/env python3
-#------------------------------------------------------
-#      BY: UNDEADSEC from BRAZIL :) AND Basty-devel from Germany
-#      YouTube: https://www.youtube.com/c/UndeadSec
-#      Github: https://github.com/UndeadSec/EvilURL
-#      Version: 4.0 - EvilURL4 (Classroom Edition)
-#------------------------------------------------------
-import os
+# -------------------------------------------------------------------
+# Enhanced Homograph Attack Demonstrator (Educational Tool)
+# by basty-devel
+# PURPOSE:
+# This script is for educational use ONLY. It demonstrates how
+# Internationalized Domain Name (IDN) homograph attacks are constructed
+# by substituting Latin characters with visually similar non-Latin ones.
+#
+# ENHANCEMENTS:
+# 1. Expanded character substitution map with Cyrillic and Greek homoglyphs
+# 2. PyQt5 GUI for interactive usage
+# 3. WHOIS lookup functionality to check domain registration status
+# 4. Online domain availability check via socket connection
+# 5. Detailed results display showing substitutions and domain status
+#
+# By understanding the mechanics, you can better defend against them.
+# -------------------------------------------------------------------
 import sys
 import itertools
 import socket
-import threading
-import time
-try:
-    import whois
-except ImportError:
-    print("The 'whois' module is not installed. Please run 'pip install python-whois'.")
-    sys.exit(1)
+import whois
 from datetime import datetime
-from urllib.parse import urlparse
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
+                             QTextEdit, QCheckBox, QGroupBox, QProgressBar,
+                             QMessageBox, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QSplitter)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QFont, QColor
 
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
-    QLineEdit, QPushButton, QTextEdit, QLabel, QCheckBox, QFileDialog,
-    QGroupBox, QMessageBox, QProgressBar, QStatusBar
-)
-from PyQt5.QtCore import Qt, pyqtSignal, QThread
-from PyQt5.QtGui import QFont, QTextCursor, QColor, QTextCharFormat, QPalette
-
-# ANSI color codes
-RED, WHITE, GREEN, END, YELLOW, CYAN = (
-    '\033[91m', '\33[97m', '\033[1;32m', '\033[0m', '\33[93m', '\033[96m'
-)
-
-# Extended Cyrillic characters similar to Latin letters
-EVIL_MAP = {
-    'a': ['\u0430', '\u04D0', '\u0101'],  # а, Ӑ, ā
-    'b': ['\u042C', '\u13CF'],            # ь, Ꮟ
-    'c': ['\u0441', '\u03F2', '\u03C2'],  # с, ϲ, ς
-    'd': ['\u0501', '\u217E'],            # ԁ, ⅾ
-    'e': ['\u0435', '\u04BD', '\u0113'],  # е, ӽ, ē
-    'f': ['\u04FB', '\u0584'],            # ӻ, ք
-    'g': ['\u0581', '\u0260'],            # ց, ɠ
-    'h': ['\u04BB', '\u13C2'],            # һ, Ꮒ
-    'i': ['\u0456', '\u037F', '\u0268'],  # і, Ϳ, ɨ
-    'j': ['\u0458', '\u037F'],            # ј, Ϳ
-    'k': ['\u13E6', '\u04C3'],            # Ꮶ, Ӄ
-    'l': ['\u04CF', '\u217C'],            # ӏ, ⅼ
-    'm': ['\u13B8', '\u217F'],            # Ꮈ, ⅿ
-    'n': ['\u0578', '\u057C'],            # ն, ռ
-    'o': ['\u043E', '\u03BF', '\u0585'],  # о, ο, օ
-    'p': ['\u0440', '\u03F1'],            # р, ϱ
-    'q': ['\u051B', '\u0563'],            # ԛ, գ
-    'r': ['\u1EA1', '\u0433'],            # ạ, г
-    's': ['\u0455', '\u03C2'],            # ѕ, ς
-    't': ['\u1E6D', '\u0442'],            # ṭ, т
-    'u': ['\u057D', '\u057E'],            # մ, մ
-    'v': ['\u1E7F', '\u0475'],            # ṿ, ѵ
-    'w': ['\u051D', '\u0561'],            # ԝ, ա
-    'x': ['\u0445', '\u04B3'],            # х, ҳ
-    'y': ['\u0443', '\u04AF'],            # у, ү
-    'z': ['\u1E93', '\u0225'],            # ẓ, ȥ
+# Expanded map of Latin to visually similar non-Latin characters
+# Includes Cyrillic and Greek homoglyphs that are visually similar
+HOMOGLYPH_MAP = {
+    # Latin: (Cyrillic, Greek)
+    'a': ('а', 'α'),      # Cyrillic small a, Greek alpha
+    'b': ('ь', ''),       # Cyrillic soft sign (visual similarity in some fonts)
+    'c': ('с', ''),       # Cyrillic small es
+    'd': ('ԁ', ''),       # Cyrillic small komi de
+    'e': ('е', 'е'),      # Cyrillic small ie, Greek epsilon (not perfect but sometimes used)
+    'f': ('ƒ', ''),       # Latin small f with hook (cross-script)
+    'g': ('ɡ', ''),       # Latin small script g
+    'h': ('һ', ''),       # Cyrillic small shha
+    'i': ('і', 'і'),      # Cyrillic small byelorussian-ukrainian i
+    'j': ('ј', ''),       # Cyrillic small je
+    'k': ('к', ''),       # Cyrillic small ka
+    'l': ('Ӏ', ''),       # Cyrillic small palochka
+    'm': ('м', ''),       # Cyrillic small em
+    'n': ('п', ''),       # Cyrillic small pe (caution: resembles n in some fonts)
+    'o': ('о', 'ο'),      # Cyrillic small o, Greek omicron
+    'p': ('р', ''),       # Cyrillic small er
+    'q': ('ԛ', ''),       # Cyrillic small qa
+    'r': ('г', ''),       # Cyrillic small ghe (resembles r)
+    's': ('ѕ', ''),       # Cyrillic small dze
+    't': ('т', ''),       # Cyrillic small te
+    'u': ('υ', ''),       # Greek upsilon (resembles u)
+    'v': ('ν', ''),       # Greek nu (resembles v)
+    'w': ('ѡ', ''),       # Cyrillic small omega
+    'x': ('х', 'χ'),      # Cyrillic small ha, Greek chi
+    'y': ('у', 'γ'),      # Cyrillic small u, Greek gamma
+    'z': ('з', ''),       # Cyrillic small ze (resembles z in some fonts)
 }
 
-UNICODE_DESCRIPTIONS = {
-    '\u0430': 'Cyrillic Small Letter A',
-    '\u0441': 'Cyrillic Small Letter Es',
-    '\u0435': 'Cyrillic Small Letter Ie',
-    '\u0456': 'Cyrillic Small Letter Byelorussian-Ukrainian I',
-    '\u0458': 'Cyrillic Small Letter Je',
-    '\u04CF': 'Cyrillic Small Letter Palochka',
-    '\u043E': 'Cyrillic Small Letter O',
-    '\u0440': 'Cyrillic Small Letter Er',
-    '\u0455': 'Cyrillic Small Letter Dze',
-    '\u0445': 'Cyrillic Small Letter Ha',
-    '\u0443': 'Cyrillic Small Letter U',
-    '\u0501': 'Cyrillic Small Letter Komi De',
-    '\u051B': 'Cyrillic Small Letter Qa',
-    '\u051D': 'Cyrillic Small Letter We',
-    '\u042C': 'Cyrillic Small Letter Soft Sign',
-    '\u04D0': 'Cyrillic Small Letter A with Breve',
-    '\u04BD': 'Cyrillic Small Letter Abkhasian Che',
-    '\u04FB': 'Cyrillic Small Letter Shha with Descender',
-    '\u04C3': 'Cyrillic Small Letter Ka with Hook',
-    '\u03BF': 'Greek Small Letter Omicron',
-    '\u03F1': 'Greek Rho Symbol',
-    '\u03C2': 'Greek Small Letter Final Sigma',
-    '\u1EA1': 'Latin Small Letter A with Dot Below',
-    '\u1E6D': 'Latin Small Letter T with Dot Below',
-    '\u1E7F': 'Latin Small Letter V with Dot Below',
-    '\u1E93': 'Latin Small Letter Z with Dot Below',
-    '\u217E': 'Small Roman Numeral Five Hundred',
-    '\u13CF': 'Cherokee Letter Se',
-    '\u13C2': 'Cherokee Letter Tli',
-    '\u13E6': 'Cherokee Letter Go',
-    '\u13B8': 'Cherokee Letter Tlu',
-}
+def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinations=50):
+    """
+    Generates homograph variations of a domain name using non-Latin characters.
 
-def get_banner():
-    return f"""{RED}
-{RED}88888888888           88  88{END}  88        88  88888888ba   88           
-{RED}88                    ""  88{END}  88        88  88      "8b  88           
-{RED}88                        88{END}  88        88  88      ,8P  88           
-{RED}88aaaaa  8b       d8  88  88{END}  88        88  88aaaaaa8P'  88           
-{RED}88\"\"\"\"\"  `8b     d8'  88  88{END}  88        88  88\"\"\"\"88'    88      v4.0     
-{RED}88        `8b   d8'   88  88{END}  88        88  88    `8b    88           
-{RED}88         `8b,d8'    88  88{END}  Y8a.    .a8P  88     `8b   88           
-{RED}88888888888  "8"      88  88{END}   `"Y8888Y"'   88      `8b  88888888  {END}
+    Args:
+        domain (str): The input domain name (e.g., "google.com").
+        use_cyrillic (bool): Whether to use Cyrillic character substitutions.
+        use_greek (bool): Whether to use Greek character substitutions.
+        max_combinations (int): Maximum number of combinations to generate.
 
-[ by {RED}Basty-devel - Sebastian Friedrich Nestler + UndeadSec - Alisson Moretto @UndeadSec{END} ]
-[ Classroom Edition - IDN Homograph Demonstration ]
-"""
-
-def clean_txt(txt):
-    for code in (RED, WHITE, GREEN, END, YELLOW, CYAN):
-        txt = txt.replace(code, '')
-    return txt
-
-def generate_evil_combinations(domain, tld):
-    base_domain = domain.split('.')[0]
-    replaceable_chars = [c for c in base_domain if c.lower() in EVIL_MAP]
-    
-    if not replaceable_chars:
+    Returns:
+        A list of tuples, where each tuple contains:
+        (generated_homograph_domain, list_of_replacements, script_type)
+    """
+    if '.' not in domain:
         return []
-    
-    combinations = []
-    char_positions = {char: [] for char in set(replaceable_chars)}
-    
-    # Map character positions
-    for idx, char in enumerate(base_domain):
-        if char.lower() in EVIL_MAP:
-            char_positions[char].append(idx)
-    
-    # Generate all possible combinations of positions to replace
-    all_combinations = []
-    for char, positions in char_positions.items():
-        char_combs = []
-        for r in range(1, len(positions) + 1):
-            char_combs.extend(itertools.combinations(positions, r))
-        all_combinations.append(char_combs)
-    
-    # Generate final combinations
-    for comb in itertools.product(*all_combinations):
-        new_domain = list(base_domain)
-        replacements = []
-        for positions in comb:
-            for pos in positions:
-                orig_char = base_domain[pos]
-                unicode_char = EVIL_MAP[orig_char.lower()][0]  # Use first variant
-                new_domain[pos] = unicode_char
-                replacements.append((orig_char, unicode_char, pos))
-        evil_domain = ''.join(new_domain) + tld
-        combinations.append((evil_domain, replacements))
-    
-    return combinations
 
-def check_domain_availability(domain):
-    try:
-        w = whois.whois(domain)
-        return w.status is None
-    except Exception:
-        return True
-
-def check_url_connection(url):
-    try:
-        parsed = urlparse(url)
-        host = parsed.netloc or parsed.path.split('/')[0]
-        ip = socket.gethostbyname(host)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(3)
-            s.connect((ip, 80))
-        return True
-    except Exception:
-        return False
-
-class Worker(QThread):
-    progress = pyqtSignal(int)
-    status = pyqtSignal(str)
-    result = pyqtSignal(str, str)  # text, color
-    finished = pyqtSignal()
+    base_name = domain.split('.')[0].lower()
+    tld = '.' + '.'.join(domain.split('.')[1:])
     
-    def __init__(self, domains, options):
-        super().__init__()
-        self.domains = domains
-        self.options = options
-        self._is_running = True
-        
-    def run(self):
-        total = len(self.domains)
-        for idx, domain in enumerate(self.domains):
-            if not self._is_running:
+    # Find the indices of characters that can be replaced
+    replaceable_indices = []
+    replacement_options = {}  # Index: list of possible replacements
+    
+    for i, char in enumerate(base_name):
+        if char in HOMOGLYPH_MAP:
+            scripts = []
+            if use_cyrillic and HOMOGLYPH_MAP[char][0]:
+                scripts.append(('Cyrillic', HOMOGLYPH_MAP[char][0]))
+            if use_greek and HOMOGLYPH_MAP[char][1]:
+                scripts.append(('Greek', HOMOGLYPH_MAP[char][1]))
+                
+            if scripts:
+                replaceable_indices.append(i)
+                replacement_options[i] = scripts
+    
+    if not replaceable_indices:
+        return []
+
+    generated_domains = []
+    combination_count = 0
+
+    # Generate combinations, limiting to max_combinations
+    for r in range(1, len(replaceable_indices) + 1):
+        for indices_to_replace in itertools.combinations(replaceable_indices, r):
+            if combination_count >= max_combinations:
                 break
                 
-            self.status.emit(f"Processing: {domain}")
-            self.process_domain(domain, self.options)
-            
-            # Update progress
-            progress = int((idx + 1) / total * 100)
-            self.progress.emit(progress)
-        
-        self.status.emit("Operation completed")
-        self.finished.emit()
-    
-    def stop(self):
-        self._is_running = False
-        self.status.emit("Operation cancelled")
-        
-    def process_domain(self, domain, options):
-        if '.' not in domain:
-            self.result.emit(f"[!] Invalid domain: {domain}", "yellow")
-            return
-        
-        tld = '.' + domain.split('.', 1)[1]
-        base_name = domain.split('.')[0]
-        
-        self.result.emit(f"\n[+] Target Domain: {domain}", "green")
-        
-        if options['check']:
-            try:
-                status = "UP" if check_url_connection(domain) else "DOWN"
-                color = "green" if status == "UP" else "red"
-                self.result.emit(f"[~] Original Connection: {status}", color)
-            except Exception as e:
-                self.result.emit(f"[!] Connection check failed: {str(e)}", "red")
-        
-        if options['generate']:
-            try:
-                combinations = generate_evil_combinations(domain, tld)
-            except Exception as e:
-                self.result.emit(f"[!] Generation failed: {str(e)}", "red")
-                return
-            
-            if not combinations:
-                self.result.emit("[!] No valid character replacements found", "yellow")
-                return
-            
-            self.result.emit(f"[+] Generated {len(combinations)} homograph variants", "green")
-            
-            for evil_domain, replacements in combinations:
-                self.result.emit(f"\n»» Homograph: {evil_domain}", "red")
+            # For each index to replace, we need to choose one script
+            # Generate all script combinations for these indices
+            script_choices = [replacement_options[idx] for idx in indices_to_replace]
+            for script_combination in itertools.product(*script_choices):
+                if combination_count >= max_combinations:
+                    break
+                    
+                new_domain_list = list(base_name)
+                replacements = []
                 
-                rep_info = ', '.join(
-                    f"{orig}→{uni}(pos:{pos})" 
-                    for orig, uni, pos in replacements
-                )
-                self.result.emit(f"[*] Replacements: {rep_info}", "white")
+                for idx, (script, char_replacement) in zip(indices_to_replace, script_combination):
+                    original_char = base_name[idx]
+                    new_domain_list[idx] = char_replacement
+                    replacements.append(f"'{original_char}'→'{char_replacement}'({script})")
                 
-                if options['check']:
-                    try:
-                        status = "UP" if check_url_connection(evil_domain) else "DOWN"
-                        color = "green" if status == "UP" else "red"
-                        self.result.emit(f"[~] Connection Test: {status}", color)
-                    except Exception as e:
-                        self.result.emit(f"[!] Connection test failed: {str(e)}", "red")
+                homograph_domain = "".join(new_domain_list) + tld
+                generated_domains.append((homograph_domain, replacements, script_combination[0][0]))
+                combination_count += 1
                 
-                if options['availability']:
-                    try:
-                        available = check_domain_availability(evil_domain)
-                        status = "AVAILABLE" if available else "REGISTERED"
-                        color = "green" if available else "red"
-                        self.result.emit(f"[~] Domain Status: {status}", color)
-                    except Exception as e:
-                        self.result.emit(f"[!] Availability check failed: {str(e)}", "red")
-                
-                # Small delay to prevent flooding the UI
-                time.sleep(0.1)
+    return generated_domains
 
-class EvilURLGUI(QMainWindow):
+def check_domain_online(domain):
+    """
+    Check if a domain is online by attempting to resolve it.
+    
+    Args:
+        domain (str): Domain name to check
+        
+    Returns:
+        bool: True if domain resolves, False otherwise
+    """
+    try:
+        socket.gethostbyname(domain)
+        return True
+    except socket.gaierror:
+        return False
+
+def get_whois_info(domain):
+    """
+    Perform WHOIS lookup for a domain.
+    
+    Args:
+        domain (str): Domain name to lookup
+        
+    Returns:
+        dict or None: WHOIS information if available, None otherwise
+    """
+    try:
+        return whois.whois(domain)
+    except Exception:
+        return None
+
+class WorkerThread(QThread):
+    """
+    Worker thread for performing domain checks without freezing the GUI.
+    """
+    progress_updated = pyqtSignal(int, int, str)  # current, total, domain
+    result_ready = pyqtSignal(list)  # list of result dictionaries
+    finished = pyqtSignal()
+
+    def __init__(self, domain, use_cyrillic, use_greek, check_whois, check_online, max_combinations):
+        super().__init__()
+        self.domain = domain
+        self.use_cyrillic = use_cyrillic
+        self.use_greek = use_greek
+        self.check_whois = check_whois
+        self.check_online = check_online
+        self.max_combinations = max_combinations
+        self.results = []
+
+    def run(self):
+        # Generate homograph variants
+        homographs = generate_homographs(
+            self.domain, self.use_cyrillic, self.use_greek, self.max_combinations
+        )
+        
+        total = len(homographs)
+        self.results = []
+        
+        for i, (homograph, replacements, script) in enumerate(homographs):
+            # Update progress
+            self.progress_updated.emit(i + 1, total, homograph)
+            
+            # Get Punycode representation
+            try:
+                punycode = homograph.encode('idna').decode('ascii')
+            except UnicodeError:
+                punycode = "Encoding error"
+            
+            # Check if domain is online
+            is_online = check_domain_online(homograph) if self.check_online else None
+            
+            # Get WHOIS information
+            whois_info = None
+            is_registered = None
+            if self.check_whois:
+                whois_info = get_whois_info(homograph)
+                if whois_info:
+                    is_registered = True
+                else:
+                    is_registered = False
+            
+            result = {
+                'domain': homograph,
+                'punycode': punycode,
+                'replacements': replacements,
+                'script': script,
+                'online': is_online,
+                'registered': is_registered,
+                'whois_info': whois_info
+            }
+            
+            self.results.append(result)
+        
+        self.result_ready.emit(self.results)
+        self.finished.emit()
+
+class HomographGUI(QMainWindow):
+    """
+    Main GUI window for the Homograph Attack Demonstrator.
+    """
     def __init__(self):
         super().__init__()
-        self.worker = None
-        self.init_ui()
+        self.initUI()
         
-    def init_ui(self):
-        self.setWindowTitle("EvilURL4 Classroom Edition")
-        self.setGeometry(100, 100, 900, 700)
+    def initUI(self):
+        self.setWindowTitle('IDN Homograph Attack Demonstrator')
+        self.setGeometry(100, 100, 1000, 700)
         
-        # Central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+        layout = QVBoxLayout(central_widget)
         
-        # Banner
-        banner = QLabel(get_banner())
-        banner.setFont(QFont("Courier New", 9))
-        banner.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(banner)
+        # Input section
+        input_group = QGroupBox("Domain Input")
+        input_layout = QVBoxLayout()
         
-        # Tabs
-        tabs = QTabWidget()
-        self.single_tab = QWidget()
-        self.batch_tab = QWidget()
-        
-        # Single domain tab
-        single_layout = QVBoxLayout(self.single_tab)
-        single_layout.addWidget(QLabel("Domain (e.g., example.com):"))
+        domain_layout = QHBoxLayout()
+        domain_layout.addWidget(QLabel("Domain to analyze:"))
         self.domain_input = QLineEdit()
-        self.domain_input.setPlaceholderText("Enter target domain")
-        single_layout.addWidget(self.domain_input)
+        self.domain_input.setPlaceholderText("example.com")
+        domain_layout.addWidget(self.domain_input)
         
-        # Batch processing tab
-        batch_layout = QVBoxLayout(self.batch_tab)
-        batch_layout.addWidget(QLabel("Input File:"))
-        file_layout = QHBoxLayout()
-        self.file_input = QLineEdit()
-        self.file_input.setPlaceholderText("Select input file")
-        browse_btn = QPushButton("Browse")
-        browse_btn.clicked.connect(self.browse_file)
-        file_layout.addWidget(self.file_input)
-        file_layout.addWidget(browse_btn)
-        batch_layout.addLayout(file_layout)
-        
-        tabs.addTab(self.single_tab, "Single Domain")
-        tabs.addTab(self.batch_tab, "Batch Processing")
-        main_layout.addWidget(tabs)
+        self.analyze_btn = QPushButton("Analyze")
+        self.analyze_btn.clicked.connect(self.start_analysis)
+        domain_layout.addWidget(self.analyze_btn)
+        input_layout.addLayout(domain_layout)
         
         # Options
-        options_group = QGroupBox("Options")
-        options_layout = QVBoxLayout()
-        self.generate_cb = QCheckBox("Generate homograph variants")
-        self.generate_cb.setChecked(True)
-        self.check_cb = QCheckBox("Check domain connection")
-        self.availability_cb = QCheckBox("Check domain availability")
-        options_layout.addWidget(self.generate_cb)
-        options_layout.addWidget(self.check_cb)
-        options_layout.addWidget(self.availability_cb)
-        options_group.setLayout(options_layout)
-        main_layout.addWidget(options_group)
+        options_layout = QHBoxLayout()
+        self.cyrillic_check = QCheckBox("Use Cyrillic characters")
+        self.cyrillic_check.setChecked(True)
+        options_layout.addWidget(self.cyrillic_check)
         
-        # Output
-        output_group = QGroupBox("Output")
-        output_layout = QVBoxLayout()
-        self.output_text = QTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setFont(QFont("Courier New", 10))
+        self.greek_check = QCheckBox("Use Greek characters")
+        self.greek_check.setChecked(True)
+        options_layout.addWidget(self.greek_check)
         
-        # Set dark theme
-        palette = QPalette()
-        palette.setColor(QPalette.Base, QColor(30, 30, 30))
-        palette.setColor(QPalette.Text, QColor(220, 220, 220))
-        self.output_text.setPalette(palette)
+        self.whois_check = QCheckBox("Perform WHOIS lookup")
+        self.whois_check.setChecked(True)
+        options_layout.addWidget(self.whois_check)
         
-        output_layout.addWidget(self.output_text)
-        output_group.setLayout(output_layout)
-        main_layout.addWidget(output_group)
+        self.online_check = QCheckBox("Check if domain is online")
+        self.online_check.setChecked(True)
+        options_layout.addWidget(self.online_check)
+        input_layout.addLayout(options_layout)
         
-        # Progress bar
+        input_group.setLayout(input_layout)
+        layout.addWidget(input_group)
+        
+        # Progress section
+        progress_group = QGroupBox("Progress")
+        progress_layout = QVBoxLayout()
+        
         self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        main_layout.addWidget(self.progress_bar)
+        self.progress_label = QLabel("Ready")
+        progress_layout.addWidget(self.progress_label)
+        progress_layout.addWidget(self.progress_bar)
         
-        # Buttons
-        btn_layout = QHBoxLayout()
-        self.process_btn = QPushButton("Process")
-        self.process_btn.clicked.connect(self.start_processing)
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setEnabled(False)
-        self.cancel_btn.clicked.connect(self.cancel_processing)
-        save_btn = QPushButton("Save Output")
-        save_btn.clicked.connect(self.save_output)
-        clear_btn = QPushButton("Clear Output")
-        clear_btn.clicked.connect(self.clear_output)
+        progress_group.setLayout(progress_layout)
+        layout.addWidget(progress_group)
         
-        btn_layout.addWidget(self.process_btn)
-        btn_layout.addWidget(self.cancel_btn)
-        btn_layout.addWidget(save_btn)
-        btn_layout.addWidget(clear_btn)
-        main_layout.addLayout(btn_layout)
+        # Results section
+        results_group = QGroupBox("Results")
+        results_layout = QVBoxLayout()
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(6)
+        self.results_table.setHorizontalHeaderLabels([
+            "Homograph Domain", "Punycode", "Script", "Replacements", 
+            "Online", "Registered"
+        ])
+        self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.results_table.doubleClicked.connect(self.show_details)
+        results_layout.addWidget(self.results_table)
+        
+        results_group.setLayout(results_layout)
+        layout.addWidget(results_group)
         
         # Status bar
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
+        self.statusBar().showMessage('Ready')
         
-    def browse_file(self):
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Select Input File", "", "Text Files (*.txt);;All Files (*)"
-        )
-        if filename:
-            self.file_input.setText(filename)
-    
-    def get_options(self):
-        return {
-            'generate': self.generate_cb.isChecked(),
-            'check': self.check_cb.isChecked(),
-            'availability': self.availability_cb.isChecked()
-        }
-    
-    def get_domains(self):
-        current_tab = self.centralWidget().findChild(QTabWidget).currentIndex()
-        if current_tab == 0:  # Single domain
-            domain = self.domain_input.text().strip()
-            return [domain] if domain else []
-        else:  # Batch processing
-            filename = self.file_input.text().strip()
-            if not filename:
-                return []
-            try:
-                with open(filename, 'r', encoding='utf-8') as f:
-                    return [line.strip() for line in f if line.strip()]
-            except Exception as e:
-                self.show_error(f"Error reading file: {str(e)}")
-                return []
-    
-    def start_processing(self):
-        domains = self.get_domains()
-        if not domains:
-            self.show_error("No domains to process!")
-            return
+        self.worker_thread = None
         
-        options = self.get_options()
-        if not any(options.values()):
-            self.show_error("Please select at least one option")
-            return
-        
-        # Clear previous output
-        self.clear_output()
-        self.append_output(get_banner(), "white")
-        self.append_output(f"\nProcessing started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "cyan")
-        
-        # Setup worker
-        self.worker = Worker(domains, options)
-        self.worker.result.connect(self.append_output)
-        self.worker.status.connect(self.status_bar.showMessage)
-        self.worker.progress.connect(self.progress_bar.setValue)
-        self.worker.finished.connect(self.on_worker_finished)
-        
-        # Update UI
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.process_btn.setEnabled(False)
-        self.cancel_btn.setEnabled(True)
-        
-        # Start worker
-        self.worker.start()
-    
-    def cancel_processing(self):
-        if self.worker:
-            self.worker.stop()
-            self.worker.wait(1000)
-            self.on_worker_finished()
-            self.append_output("\n[!] Operation cancelled by user", "yellow")
-    
-    def on_worker_finished(self):
-        self.process_btn.setEnabled(True)
-        self.cancel_btn.setEnabled(False)
-        self.progress_bar.setVisible(False)
-        self.worker = None
-    
-    def append_output(self, text, color_name):
-        # Map color names to QColor
-        color_map = {
-            "red": QColor(255, 80, 80),
-            "green": QColor(80, 255, 80),
-            "yellow": QColor(255, 255, 80),
-            "cyan": QColor(80, 255, 255),
-            "white": QColor(255, 255, 255)
-        }
-        
-        color = color_map.get(color_name.lower(), QColor(200, 200, 200))
-        
-        # Create text format
-        fmt = QTextCharFormat()
-        fmt.setForeground(color)
-        
-        # Append text
-        cursor = self.output_text.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        cursor.insertText(clean_txt(text) + '\n')
-        cursor.select(QTextCursor.LineUnderCursor)
-        cursor.mergeCharFormat(fmt)
-        
-        # Scroll to bottom
-        self.output_text.ensureCursorVisible()
-    
-    def save_output(self):
-        content = self.output_text.toPlainText()
-        if not content:
+    def start_analysis(self):
+        domain = self.domain_input.text().strip()
+        if not domain:
+            QMessageBox.warning(self, "Input Error", "Please enter a domain name to analyze.")
             return
             
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Output", f"evilurl_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-            "Text Files (*.txt);;All Files (*)"
+        if '.' not in domain:
+            QMessageBox.warning(self, "Input Error", "Please enter a valid domain name (e.g., example.com).")
+            return
+            
+        # Disable button during analysis
+        self.analyze_btn.setEnabled(False)
+        self.statusBar().showMessage('Analyzing...')
+        
+        # Create and start worker thread
+        self.worker_thread = WorkerThread(
+            domain,
+            self.cyrillic_check.isChecked(),
+            self.greek_check.isChecked(),
+            self.whois_check.isChecked(),
+            self.online_check.isChecked(),
+            max_combinations=100  # Limit to prevent UI freeze
         )
-        if filename:
-            try:
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                self.status_bar.showMessage(f"Output saved to {filename}", 5000)
-            except Exception as e:
-                self.show_error(f"Error saving file: {str(e)}")
-    
-    def clear_output(self):
-        self.output_text.clear()
-    
-    def show_error(self, message):
-        QMessageBox.critical(self, "Error", message)
+        
+        self.worker_thread.progress_updated.connect(self.update_progress)
+        self.worker_thread.result_ready.connect(self.display_results)
+        self.worker_thread.finished.connect(self.analysis_finished)
+        self.worker_thread.start()
+        
+    def update_progress(self, current, total, domain):
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(current)
+        self.progress_label.setText(f"Processing: {domain} ({current}/{total})")
+        
+    def display_results(self, results):
+        self.results_table.setRowCount(len(results))
+        
+        for row, result in enumerate(results):
+            self.results_table.setItem(row, 0, QTableWidgetItem(result['domain']))
+            self.results_table.setItem(row, 1, QTableWidgetItem(result['punycode']))
+            self.results_table.setItem(row, 2, QTableWidgetItem(result['script']))
+            self.results_table.setItem(row, 3, QTableWidgetItem(', '.join(result['replacements'])))
+            
+            # Online status
+            online_item = QTableWidgetItem()
+            if result['online'] is True:
+                online_item.setText("Yes")
+                online_item.setBackground(QColor(255, 200, 200))  # Light red
+            elif result['online'] is False:
+                online_item.setText("No")
+                online_item.setBackground(QColor(200, 255, 200))  # Light green
+            else:
+                online_item.setText("Not checked")
+            self.results_table.setItem(row, 4, online_item)
+            
+            # Registration status
+            reg_item = QTableWidgetItem()
+            if result['registered'] is True:
+                reg_item.setText("Yes")
+                reg_item.setBackground(QColor(255, 200, 200))  # Light red
+            elif result['registered'] is False:
+                reg_item.setText("No")
+                reg_item.setBackground(QColor(200, 255, 200))  # Light green
+            else:
+                reg_item.setText("Not checked")
+            self.results_table.setItem(row, 5, reg_item)
+            
+            # Store full result data
+            self.results_table.setItem(row, 0, QTableWidgetItem(result['domain']))
+            self.results_table.item(row, 0).setData(Qt.UserRole, result)
+        
+    def show_details(self):
+        current_row = self.results_table.currentRow()
+        if current_row < 0:
+            return
+            
+        item = self.results_table.item(current_row, 0)
+        result = item.data(Qt.UserRole)
+        
+        details = f"""
+        <h3>Domain Details</h3>
+        <b>Homograph Domain:</b> {result['domain']}<br>
+        <b>Punycode:</b> {result['punycode']}<br>
+        <b>Script:</b> {result['script']}<br>
+        <b>Replacements:</b> {', '.join(result['replacements'])}<br>
+        <b>Online:</b> {('Yes' if result['online'] else 'No') if result['online'] is not None else 'Not checked'}<br>
+        <b>Registered:</b> {('Yes' if result['registered'] else 'No') if result['registered'] is not None else 'Not checked'}<br>
+        """
+        
+        if result['whois_info']:
+            details += "<h3>WHOIS Information</h3>"
+            whois_info = result['whois_info']
+            
+            if hasattr(whois_info, 'domain_name'):
+                details += f"<b>Domain Name:</b> {whois_info.domain_name}<br>"
+            if hasattr(whois_info, 'registrar'):
+                details += f"<b>Registrar:</b> {whois_info.registrar}<br>"
+            if hasattr(whois_info, 'creation_date'):
+                # Handle possible list of dates
+                creation_date = whois_info.creation_date
+                if isinstance(creation_date, list) and len(creation_date) > 0:
+                    creation_date = creation_date[0]
+                if isinstance(creation_date, datetime):
+                    creation_date = creation_date.strftime("%Y-%m-%d")
+                details += f"<b>Creation Date:</b> {creation_date}<br>"
+            if hasattr(whois_info, 'expiration_date'):
+                # Handle possible list of dates
+                exp_date = whois_info.expiration_date
+                if isinstance(exp_date, list) and len(exp_date) > 0:
+                    exp_date = exp_date[0]
+                if isinstance(exp_date, datetime):
+                    exp_date = exp_date.strftime("%Y-%m-%d")
+                details += f"<b>Expiration Date:</b> {exp_date}<br>"
+            if hasattr(whois_info, 'name_servers'):
+                details += f"<b>Name Servers:</b> {', '.join(whois_info.name_servers) if isinstance(whois_info.name_servers, list) else whois_info.name_servers}<br>"
+        
+        msg = QMessageBox()
+        msg.setWindowTitle("Domain Details")
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(details)
+        msg.exec_()
+        
+    def analysis_finished(self):
+        self.analyze_btn.setEnabled(True)
+        self.statusBar().showMessage('Analysis completed')
+        self.progress_label.setText("Analysis completed")
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Modern style
-    
-    # Set dark theme
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor(53, 53, 53))
-    palette.setColor(QPalette.WindowText, Qt.white)
-    palette.setColor(QPalette.Base, QColor(25, 25, 25))
-    palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-    palette.setColor(QPalette.ToolTipBase, Qt.white)
-    palette.setColor(QPalette.ToolTipText, Qt.white)
-    palette.setColor(QPalette.Text, Qt.white)
-    palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    palette.setColor(QPalette.ButtonText, Qt.white)
-    palette.setColor(QPalette.BrightText, Qt.red)
-    palette.setColor(QPalette.Highlight, QColor(142, 45, 197).lighter())
-    palette.setColor(QPalette.HighlightedText, Qt.black)
-    app.setPalette(palette)
-    
-    window = EvilURLGUI()
-    window.show()
-    sys.exit(app.exec_())
+def main():
+    """
+    Main function to run the application.
+    """
+    # If command line argument is provided, use CLI mode
+    if len(sys.argv) > 1:
+        domain_to_check = sys.argv[1]
+        print(f"Analyzing domain: {domain_to_check}")
+        
+        homographs = generate_homographs(domain_to_check)
+        
+        if not homographs:
+            print("No homograph variants could be generated for this domain.")
+            return
+            
+        print(f"\nGenerated {len(homographs)} homograph variants:")
+        print("-" * 80)
+        
+        for i, (domain, replacements, script) in enumerate(homographs):
+            try:
+                punycode = domain.encode('idna').decode('ascii')
+            except UnicodeError:
+                punycode = "Encoding error"
+                
+            print(f"{i+1}. {domain} (Punycode: {punycode})")
+            print(f"   Script: {script}, Replacements: {', '.join(replacements)}")
+            
+            # Check if domain is online
+            online = check_domain_online(domain)
+            print(f"   Online: {'Yes' if online else 'No'}")
+            
+            # Perform WHOIS lookup
+            whois_info = get_whois_info(domain)
+            print(f"   Registered: {'Yes' if whois_info else 'No'}")
+            
+            if whois_info:
+                if hasattr(whois_info, 'registrar'):
+                    print(f"   Registrar: {whois_info.registrar}")
+                if hasattr(whois_info, 'creation_date'):
+                    print(f"   Creation Date: {whois_info.creation_date}")
+            
+            print("-" * 80)
+    else:
+        # Launch GUI if no command line arguments
+        app = QApplication(sys.argv)
+        gui = HomographGUI()
+        gui.show()
+        sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
