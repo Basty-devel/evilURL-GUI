@@ -1,79 +1,65 @@
 #!/usr/bin/env python3
 # -------------------------------------------------------------------
-# Enhanced Homograph Attack Demonstrator (Educational Tool)
-# by basty-devel
+# Enhanced Homograph Attack by N3S3 (Educational Tool)
+# With PyQt6 GUI, WHOIS lookup, and online checking
+#
 # PURPOSE:
 # This script is for educational use ONLY. It demonstrates how
 # Internationalized Domain Name (IDN) homograph attacks are constructed
 # by substituting Latin characters with visually similar non-Latin ones.
 #
-# ENHANCEMENTS:
-# 1. Expanded character substitution map with Cyrillic and Greek homoglyphs
-# 2. PyQt5 GUI for interactive usage
-# 3. WHOIS lookup functionality to check domain registration status
-# 4. Online domain availability check via socket connection
-# 5. Detailed results display showing substitutions and domain status
-#
 # By understanding the mechanics, you can better defend against them.
 # -------------------------------------------------------------------
+
 import sys
 import itertools
 import socket
 import whois
 from datetime import datetime
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+import unicodedata
+
+# PyQt6 imports
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                              QTextEdit, QCheckBox, QGroupBox, QProgressBar,
                              QMessageBox, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QSplitter)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QColor
+                             QHeaderView, QSplitter, QTabWidget)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QFont, QColor, QAction
 
 # Expanded map of Latin to visually similar non-Latin characters
-# Includes Cyrillic and Greek homoglyphs that are visually similar
 HOMOGLYPH_MAP = {
-    # Latin: (Cyrillic, Greek)
-    'a': ('а', 'α'),      # Cyrillic small a, Greek alpha
-    'b': ('ь', ''),       # Cyrillic soft sign (visual similarity in some fonts)
-    'c': ('с', ''),       # Cyrillic small es
-    'd': ('ԁ', ''),       # Cyrillic small komi de
-    'e': ('е', 'е'),      # Cyrillic small ie, Greek epsilon (not perfect but sometimes used)
-    'f': ('ƒ', ''),       # Latin small f with hook (cross-script)
-    'g': ('ɡ', ''),       # Latin small script g
-    'h': ('һ', ''),       # Cyrillic small shha
-    'i': ('і', 'і'),      # Cyrillic small byelorussian-ukrainian i
-    'j': ('ј', ''),       # Cyrillic small je
-    'k': ('к', ''),       # Cyrillic small ka
-    'l': ('Ӏ', ''),       # Cyrillic small palochka
-    'm': ('м', ''),       # Cyrillic small em
-    'n': ('п', ''),       # Cyrillic small pe (caution: resembles n in some fonts)
-    'o': ('о', 'ο'),      # Cyrillic small o, Greek omicron
-    'p': ('р', ''),       # Cyrillic small er
-    'q': ('ԛ', ''),       # Cyrillic small qa
-    'r': ('г', ''),       # Cyrillic small ghe (resembles r)
-    's': ('ѕ', ''),       # Cyrillic small dze
-    't': ('т', ''),       # Cyrillic small te
-    'u': ('υ', ''),       # Greek upsilon (resembles u)
-    'v': ('ν', ''),       # Greek nu (resembles v)
-    'w': ('ѡ', ''),       # Cyrillic small omega
-    'x': ('х', 'χ'),      # Cyrillic small ha, Greek chi
-    'y': ('у', 'γ'),      # Cyrillic small u, Greek gamma
-    'z': ('з', ''),       # Cyrillic small ze (resembles z in some fonts)
+    'a': ['а', 'α'],      # Cyrillic small a, Greek alpha
+    'b': ['ь'],           # Cyrillic soft sign
+    'c': ['с'],           # Cyrillic small es
+    'd': ['ԁ'],           # Cyrillic small komi de
+    'e': ['е'],           # Cyrillic small ie
+    'f': ['ƒ'],           # Latin small f with hook
+    'g': ['ɡ'],           # Latin small script g
+    'h': ['һ'],           # Cyrillic small shha
+    'i': ['і'],           # Cyrillic small byelorussian-ukrainian i
+    'j': ['ј'],           # Cyrillic small je
+    'k': ['к'],           # Cyrillic small ka
+    'l': ['Ӏ'],           # Cyrillic small palochka
+    'm': ['м'],           # Cyrillic small em
+    'n': ['п'],           # Cyrillic small pe (caution: resembles n)
+    'o': ['о', 'ο'],      # Cyrillic small o, Greek omicron
+    'p': ['р'],           # Cyrillic small er
+    'q': ['ԛ'],           # Cyrillic small qa
+    'r': ['г'],           # Cyrillic small ghe (resembles r)
+    's': ['ѕ'],           # Cyrillic small dze
+    't': ['т'],           # Cyrillic small te
+    'u': ['υ'],           # Greek upsilon
+    'v': ['ν'],           # Greek nu
+    'w': ['ѡ'],           # Cyrillic small omega
+    'x': ['х', 'χ'],      # Cyrillic small ha, Greek chi
+    'y': ['у', 'γ'],      # Cyrillic small u, Greek gamma
+    'z': ['з'],           # Cyrillic small ze
 }
 
-def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinations=50):
+def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinations=100):
     """
     Generates homograph variations of a domain name using non-Latin characters.
-
-    Args:
-        domain (str): The input domain name (e.g., "google.com").
-        use_cyrillic (bool): Whether to use Cyrillic character substitutions.
-        use_greek (bool): Whether to use Greek character substitutions.
-        max_combinations (int): Maximum number of combinations to generate.
-
-    Returns:
-        A list of tuples, where each tuple contains:
-        (generated_homograph_domain, list_of_replacements, script_type)
     """
     if '.' not in domain:
         return []
@@ -83,14 +69,14 @@ def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinati
     
     # Find the indices of characters that can be replaced
     replaceable_indices = []
-    replacement_options = {}  # Index: list of possible replacements
+    replacement_options = {}
     
     for i, char in enumerate(base_name):
         if char in HOMOGLYPH_MAP:
             scripts = []
             if use_cyrillic and HOMOGLYPH_MAP[char][0]:
                 scripts.append(('Cyrillic', HOMOGLYPH_MAP[char][0]))
-            if use_greek and HOMOGLYPH_MAP[char][1]:
+            if use_greek and len(HOMOGLYPH_MAP[char]) > 1 and HOMOGLYPH_MAP[char][1]:
                 scripts.append(('Greek', HOMOGLYPH_MAP[char][1]))
                 
             if scripts:
@@ -109,7 +95,6 @@ def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinati
             if combination_count >= max_combinations:
                 break
                 
-            # For each index to replace, we need to choose one script
             # Generate all script combinations for these indices
             script_choices = [replacement_options[idx] for idx in indices_to_replace]
             for script_combination in itertools.product(*script_choices):
@@ -125,7 +110,8 @@ def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinati
                     replacements.append(f"'{original_char}'→'{char_replacement}'({script})")
                 
                 homograph_domain = "".join(new_domain_list) + tld
-                generated_domains.append((homograph_domain, replacements, script_combination[0][0]))
+                script_type = script_combination[0][0] if script_combination else "Mixed"
+                generated_domains.append((homograph_domain, replacements, script_type))
                 combination_count += 1
                 
     return generated_domains
@@ -133,12 +119,6 @@ def generate_homographs(domain, use_cyrillic=True, use_greek=True, max_combinati
 def check_domain_online(domain):
     """
     Check if a domain is online by attempting to resolve it.
-    
-    Args:
-        domain (str): Domain name to check
-        
-    Returns:
-        bool: True if domain resolves, False otherwise
     """
     try:
         socket.gethostbyname(domain)
@@ -149,24 +129,44 @@ def check_domain_online(domain):
 def get_whois_info(domain):
     """
     Perform WHOIS lookup for a domain.
-    
-    Args:
-        domain (str): Domain name to lookup
-        
-    Returns:
-        dict or None: WHOIS information if available, None otherwise
     """
     try:
         return whois.whois(domain)
     except Exception:
         return None
 
+def normalize_symbols(text):
+    """
+    Normalize various symbol characters to their basic ASCII equivalents.
+    """
+    symbol_normalization_map = {
+        '。': '.', '．': '.', '｡': '.',
+        '∕': '/', '／': '/', '⧸': '/', '⁄': '/',
+        '‐': '-', '‑': '-', '‒': '-', '–': '-', 
+        '—': '-', '−': '-', '﹘': '-', '―': '-',
+        '，': ',', '‚': ',', '､': ',',
+        '：': ':', '﹕': ':',
+        '；': ';', '﹔': ';',
+        '＠': '@', '！': '!', '？': '?',
+        '（': '(', '）': ')', '［': '[', '］': ']',
+        '｛': '{', '｝': '}', '＂': '"', '＇': "'",
+        '～': '~', '＄': '$', '％': '%', '＾': '^',
+        '＆': '&', '＊': '*', '＋': '+', '＝': '=',
+    }
+    
+    normalized = unicodedata.normalize('NFKC', text)
+    result = []
+    for char in normalized:
+        result.append(symbol_normalization_map.get(char, char))
+    
+    return ''.join(result)
+
 class WorkerThread(QThread):
     """
     Worker thread for performing domain checks without freezing the GUI.
     """
-    progress_updated = pyqtSignal(int, int, str)  # current, total, domain
-    result_ready = pyqtSignal(list)  # list of result dictionaries
+    progress_updated = pyqtSignal(int, int, str)
+    result_ready = pyqtSignal(list)
     finished = pyqtSignal()
 
     def __init__(self, domain, use_cyrillic, use_greek, check_whois, check_online, max_combinations):
@@ -180,7 +180,6 @@ class WorkerThread(QThread):
         self.results = []
 
     def run(self):
-        # Generate homograph variants
         homographs = generate_homographs(
             self.domain, self.use_cyrillic, self.use_greek, self.max_combinations
         )
@@ -189,27 +188,20 @@ class WorkerThread(QThread):
         self.results = []
         
         for i, (homograph, replacements, script) in enumerate(homographs):
-            # Update progress
             self.progress_updated.emit(i + 1, total, homograph)
             
-            # Get Punycode representation
             try:
                 punycode = homograph.encode('idna').decode('ascii')
             except UnicodeError:
                 punycode = "Encoding error"
             
-            # Check if domain is online
             is_online = check_domain_online(homograph) if self.check_online else None
             
-            # Get WHOIS information
             whois_info = None
             is_registered = None
             if self.check_whois:
                 whois_info = get_whois_info(homograph)
-                if whois_info:
-                    is_registered = True
-                else:
-                    is_registered = False
+                is_registered = whois_info is not None
             
             result = {
                 'domain': homograph,
@@ -235,24 +227,25 @@ class HomographGUI(QMainWindow):
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle('IDN Homograph Attack Demonstrator')
-        self.setGeometry(100, 100, 1000, 700)
+        self.setWindowTitle('IDN Homograph Attack by N3S3 - Educational Tool')
+        self.setGeometry(100, 100, 1200, 800)
         
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
         # Input section
-        input_group = QGroupBox("Domain Input")
+        input_group = QGroupBox("Domain Analysis Configuration")
         input_layout = QVBoxLayout()
         
         domain_layout = QHBoxLayout()
         domain_layout.addWidget(QLabel("Domain to analyze:"))
         self.domain_input = QLineEdit()
         self.domain_input.setPlaceholderText("example.com")
+        self.domain_input.setText("google.com")
         domain_layout.addWidget(self.domain_input)
         
-        self.analyze_btn = QPushButton("Analyze")
+        self.analyze_btn = QPushButton("Analyze Domain")
         self.analyze_btn.clicked.connect(self.start_analysis)
         domain_layout.addWidget(self.analyze_btn)
         input_layout.addLayout(domain_layout)
@@ -280,11 +273,11 @@ class HomographGUI(QMainWindow):
         layout.addWidget(input_group)
         
         # Progress section
-        progress_group = QGroupBox("Progress")
+        progress_group = QGroupBox("Analysis Progress")
         progress_layout = QVBoxLayout()
         
         self.progress_bar = QProgressBar()
-        self.progress_label = QLabel("Ready")
+        self.progress_label = QLabel("Ready to analyze domains")
         progress_layout.addWidget(self.progress_label)
         progress_layout.addWidget(self.progress_bar)
         
@@ -292,7 +285,7 @@ class HomographGUI(QMainWindow):
         layout.addWidget(progress_group)
         
         # Results section
-        results_group = QGroupBox("Results")
+        results_group = QGroupBox("Homograph Analysis Results")
         results_layout = QVBoxLayout()
         
         self.results_table = QTableWidget()
@@ -301,7 +294,13 @@ class HomographGUI(QMainWindow):
             "Homograph Domain", "Punycode", "Script", "Replacements", 
             "Online", "Registered"
         ])
-        self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.results_table.setColumnWidth(0, 250)
+        self.results_table.setColumnWidth(1, 250)
+        self.results_table.setColumnWidth(2, 100)
+        self.results_table.setColumnWidth(3, 200)
+        self.results_table.setColumnWidth(4, 80)
+        self.results_table.setColumnWidth(5, 80)
         self.results_table.doubleClicked.connect(self.show_details)
         results_layout.addWidget(self.results_table)
         
@@ -309,7 +308,7 @@ class HomographGUI(QMainWindow):
         layout.addWidget(results_group)
         
         # Status bar
-        self.statusBar().showMessage('Ready')
+        self.statusBar().showMessage('Ready - Enter a domain name to analyze')
         
         self.worker_thread = None
         
@@ -323,18 +322,16 @@ class HomographGUI(QMainWindow):
             QMessageBox.warning(self, "Input Error", "Please enter a valid domain name (e.g., example.com).")
             return
             
-        # Disable button during analysis
         self.analyze_btn.setEnabled(False)
-        self.statusBar().showMessage('Analyzing...')
+        self.statusBar().showMessage('Analyzing domain for homograph variants...')
         
-        # Create and start worker thread
         self.worker_thread = WorkerThread(
             domain,
             self.cyrillic_check.isChecked(),
             self.greek_check.isChecked(),
             self.whois_check.isChecked(),
             self.online_check.isChecked(),
-            max_combinations=100  # Limit to prevent UI freeze
+            max_combinations=100
         )
         
         self.worker_thread.progress_updated.connect(self.update_progress)
@@ -356,33 +353,32 @@ class HomographGUI(QMainWindow):
             self.results_table.setItem(row, 2, QTableWidgetItem(result['script']))
             self.results_table.setItem(row, 3, QTableWidgetItem(', '.join(result['replacements'])))
             
-            # Online status
+            # Online status with color coding
             online_item = QTableWidgetItem()
             if result['online'] is True:
                 online_item.setText("Yes")
-                online_item.setBackground(QColor(255, 200, 200))  # Light red
+                online_item.setBackground(QColor(255, 200, 200))
             elif result['online'] is False:
                 online_item.setText("No")
-                online_item.setBackground(QColor(200, 255, 200))  # Light green
+                online_item.setBackground(QColor(200, 255, 200))
             else:
                 online_item.setText("Not checked")
             self.results_table.setItem(row, 4, online_item)
             
-            # Registration status
+            # Registration status with color coding
             reg_item = QTableWidgetItem()
             if result['registered'] is True:
                 reg_item.setText("Yes")
-                reg_item.setBackground(QColor(255, 200, 200))  # Light red
+                reg_item.setBackground(QColor(255, 200, 200))
             elif result['registered'] is False:
                 reg_item.setText("No")
-                reg_item.setBackground(QColor(200, 255, 200))  # Light green
+                reg_item.setBackground(QColor(200, 255, 200))
             else:
                 reg_item.setText("Not checked")
             self.results_table.setItem(row, 5, reg_item)
             
-            # Store full result data
-            self.results_table.setItem(row, 0, QTableWidgetItem(result['domain']))
-            self.results_table.item(row, 0).setData(Qt.UserRole, result)
+            # Store full result data for details view
+            self.results_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, result)
         
     def show_details(self):
         current_row = self.results_table.currentRow()
@@ -390,16 +386,16 @@ class HomographGUI(QMainWindow):
             return
             
         item = self.results_table.item(current_row, 0)
-        result = item.data(Qt.UserRole)
+        result = item.data(Qt.ItemDataRole.UserRole)
         
         details = f"""
         <h3>Domain Details</h3>
         <b>Homograph Domain:</b> {result['domain']}<br>
         <b>Punycode:</b> {result['punycode']}<br>
         <b>Script:</b> {result['script']}<br>
-        <b>Replacements:</b> {', '.join(result['replacements'])}<br>
-        <b>Online:</b> {('Yes' if result['online'] else 'No') if result['online'] is not None else 'Not checked'}<br>
-        <b>Registered:</b> {('Yes' if result['registered'] else 'No') if result['registered'] is not None else 'Not checked'}<br>
+        <b>Character Replacements:</b> {', '.join(result['replacements'])}<br>
+        <b>Online Status:</b> {('Yes' if result['online'] else 'No') if result['online'] is not None else 'Not checked'}<br>
+        <b>Registration Status:</b> {('Yes' if result['registered'] else 'No') if result['registered'] is not None else 'Not checked'}<br>
         """
         
         if result['whois_info']:
@@ -411,7 +407,6 @@ class HomographGUI(QMainWindow):
             if hasattr(whois_info, 'registrar'):
                 details += f"<b>Registrar:</b> {whois_info.registrar}<br>"
             if hasattr(whois_info, 'creation_date'):
-                # Handle possible list of dates
                 creation_date = whois_info.creation_date
                 if isinstance(creation_date, list) and len(creation_date) > 0:
                     creation_date = creation_date[0]
@@ -419,7 +414,6 @@ class HomographGUI(QMainWindow):
                     creation_date = creation_date.strftime("%Y-%m-%d")
                 details += f"<b>Creation Date:</b> {creation_date}<br>"
             if hasattr(whois_info, 'expiration_date'):
-                # Handle possible list of dates
                 exp_date = whois_info.expiration_date
                 if isinstance(exp_date, list) and len(exp_date) > 0:
                     exp_date = exp_date[0]
@@ -430,10 +424,10 @@ class HomographGUI(QMainWindow):
                 details += f"<b>Name Servers:</b> {', '.join(whois_info.name_servers) if isinstance(whois_info.name_servers, list) else whois_info.name_servers}<br>"
         
         msg = QMessageBox()
-        msg.setWindowTitle("Domain Details")
-        msg.setTextFormat(Qt.RichText)
+        msg.setWindowTitle("Homograph Domain Details")
+        msg.setTextFormat(Qt.TextFormat.RichText)
         msg.setText(details)
-        msg.exec_()
+        msg.exec()
         
     def analysis_finished(self):
         self.analyze_btn.setEnabled(True)
@@ -464,30 +458,33 @@ def main():
             except UnicodeError:
                 punycode = "Encoding error"
                 
-            print(f"{i+1}. {domain} (Punycode: {punycode})")
-            print(f"   Script: {script}, Replacements: {', '.join(replacements)}")
+            print(f"{i+1}. {domain}")
+            print(f"   Punycode: {punycode}")
+            print(f"   Script: {script}")
+            print(f"   Replacements: {', '.join(replacements)}")
             
-            # Check if domain is online
             online = check_domain_online(domain)
             print(f"   Online: {'Yes' if online else 'No'}")
             
-            # Perform WHOIS lookup
             whois_info = get_whois_info(domain)
             print(f"   Registered: {'Yes' if whois_info else 'No'}")
             
-            if whois_info:
-                if hasattr(whois_info, 'registrar'):
-                    print(f"   Registrar: {whois_info.registrar}")
-                if hasattr(whois_info, 'creation_date'):
-                    print(f"   Creation Date: {whois_info.creation_date}")
+            if whois_info and hasattr(whois_info, 'registrar'):
+                print(f"   Registrar: {whois_info.registrar}")
             
             print("-" * 80)
     else:
         # Launch GUI if no command line arguments
         app = QApplication(sys.argv)
+        
+        # Set application properties
+        app.setApplicationName("IDN Homograph Attack by N3S3")
+        app.setApplicationVersion("2.0")
+        app.setOrganizationName("Security Education")
+        
         gui = HomographGUI()
         gui.show()
-        sys.exit(app.exec_())
+        app.exec()
 
 if __name__ == "__main__":
     main()
