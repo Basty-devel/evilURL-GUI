@@ -42,24 +42,24 @@
 Create a virtual environment (recommended)
 
 
-# Create virtual environment
+### Create virtual environment
 ```bash
 python -m venv homograph_env
 ```
-# Activate on Windows
+### Activate on Windows
 ```bash
 homograph_env\Scripts\activate
 ```
-# Activate on macOS/Linux
+### Activate on macOS/Linux
 ```bash
 source homograph_env/bin/activate
 ```
-# Install dependencies
+## Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
-# 📖 Usage
+## 📖 Usage
 Graphical Interface (Recommended)
 ```bash
 python evilURL4.py
@@ -82,7 +82,7 @@ python evilURL4.py example.com
 ```
 The CLI mode provides text-based output of homograph variants with basic security checks.
 
-# 🔍 Technical Details
+## 🔍 Technical Details
 How It Works
 The tool identifies characters in domain names that have visually similar equivalents in other scripts (primarily Cyrillic and Greek). It generates all possible combinations of substitutions and performs various security checks:
 
@@ -94,7 +94,7 @@ Online Verification: Attempts to resolve domains to identify active homograph at
 
 Risk Assessment: Color-coded indicators show potential security risks
 
-# Character Substitution Map
+## Character Substitution Map
 The tool uses a carefully curated mapping of Latin characters to their visually similar non-Latin equivalents:
 
 Latin	Cyrillic	Greek	Description
@@ -107,10 +107,10 @@ x	х	χ	Cyrillic small ha, Greek chi
 y	у	γ	Cyrillic small u, Greek gamma
 See the complete mapping in the source code.
 
-# ⚠️ Security Disclaimer
+## ⚠️ Security Disclaimer
 This tool is for educational and defensive security purposes only.
 
-# Appropriate Uses:
+### Appropriate Uses:
 Security research and education
 
 Testing your own domains and systems
@@ -119,7 +119,7 @@ Learning about homograph attack techniques
 
 Developing defensive security measures
 
-# Prohibited Uses:
+### Prohibited Uses:
 Testing domains you don't own without explicit permission
 
 Malicious activities or social engineering attacks
@@ -128,7 +128,7 @@ Harassment or fraudulent activities
 
 **The authors are not responsible for any misuse of this software. Always ensure you have proper authorization before testing domains you do not own. Unauthorized use may violate terms of service or applicable laws.**
 
-# 🐛 Contributing
+## 🐛 Contributing
 Contributions are welcome! Please feel free to submit issues, suggestions, or pull requests for:
 
 Additional character mappings
@@ -150,7 +150,7 @@ Push to the branch: git push origin feature/amazing-feature
 
 Open a pull request
 
-# 📄 License
+## 📄 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 # 🔗 References
@@ -162,7 +162,7 @@ RFC 5890: Internationalized Domain Names for Applications (IDNA)
 
 OWASP Security Guidelines
 
-# 🆕 Changelog
+## 🆕 Changelog
 Version 2.0
 Added PyQt6 GUI interface
 
@@ -174,7 +174,7 @@ Enhanced character substitution mapping
 
 Improved documentation and educational content
 
-# 💬 Support
+## 💬 Support
 For questions or issues:
 
 Check the existing GitHub issues
