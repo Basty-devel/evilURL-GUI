@@ -37,8 +37,8 @@
 
 1. **Clone or download this repository**
    ```bash
-   git clone github.com/Basty-devel/evilURL.git
-   cd evilURL
+   git clone github.com/Basty-devel/evilURL4.git
+   cd evilURL4
 Create a virtual environment (recommended)
 
 
@@ -62,7 +62,7 @@ pip install -r requirements.txt
 # 📖 Usage
 Graphical Interface (Recommended)
 ```bash
-python evilURL.py
+python evilURL4.py
 ```
 Enter a domain name in the input field (e.g., "example.com")
 
@@ -78,7 +78,7 @@ Double-click any result to see detailed domain information
 
 Command Line Interface
 ```bash
-python evilURL.py example.com
+python evilURL4.py example.com
 ```
 The CLI mode provides text-based output of homograph variants with basic security checks.
 
