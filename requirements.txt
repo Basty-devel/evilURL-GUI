@@ -1,11 +1,15 @@
+
+## 📦 requirements.txt
+
+```txt
 # Requirements for Homograph Attack Demonstrator
-# Python 3.6 or higher required
+# Python 3.8 or higher required
 
-# GUI framework
-PyQt5>=5.15.0
+# GUI framework - PyQt6 for modern GUI interface
+PyQt6>=6.4.0
 
-# WHOIS lookup functionality
+# WHOIS lookup functionality - for domain registration checks
 python-whois>=0.8.0
 
-# Additional utilities
-setuptools>=65.5.0
+# Standard library utilities
+# No version specified as these are part of Python standard library
